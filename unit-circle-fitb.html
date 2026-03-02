@@ -7,7 +7,7 @@
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body {
+        body {                
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
@@ -23,6 +23,8 @@
 
         canvas {
             background-color: white;
+            /* Border radius works best if defined on the container or if 
+               the canvas size matches the intended display size */
             border-radius: 50%;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
@@ -94,7 +96,6 @@
             color: #8b0000;
         }
         
-        /* --- NEW HINT STYLE --- */
         #hint {
             font-size: 0.85em;
             color: #666;
@@ -116,7 +117,7 @@
         <p id="prompt">Loading...</p>
         
         <div id="angleArea" class="hidden">
-            <p>Angle \(\theta\): <input type="text" id="angleInput" placeholder="e.g. pi/6"> radians</p>
+            <p>Angle \(\theta\) (radians): <input type="text" id="angleInput" placeholder="e.g. 5*pi/4"></p>
         </div>
         
         <div id="coordArea" class="hidden">
@@ -137,7 +138,7 @@
             <span id="incorrect-counter" class="counter-box">Incorrect: 0</span>
         </div>
         
-        <div id="hint">Hint: Use 'pi' for \(\pi\) and 'sqrt(number)' for \(\sqrt{}\)</div>
+        <div id="hint">Hint: Use 'pi' for \(\pi\) and 'sqrt(3)/2' for \(\frac{\sqrt{3}}{2}\).</div>
     </div>
 
     <script>
@@ -159,18 +160,22 @@
         
         let correctCount = 0;
         let incorrectCount = 0;
-        let lastFailedAnswer = "";
 
         function drawCircle() {
+            // Clear the canvas explicitly
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Axes
             ctx.beginPath();
-            ctx.strokeStyle = '#ddd';
+            ctx.strokeStyle = '#ccc';
             ctx.lineWidth = 1;
             ctx.moveTo(0, centerY);
             ctx.lineTo(canvas.width, centerY);
             ctx.moveTo(centerX, 0);
             ctx.lineTo(centerX, canvas.height);
             ctx.stroke();
+            
+            // Circle
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
             ctx.strokeStyle = '#333';
@@ -193,12 +198,24 @@
             ctx.fill();
         }
 
+        // Improved Parser
         function parseMathInput(str) {
             if (!str) return null;
             let expr = str.replace(/\s/g, '').toLowerCase();
+            
+            // 1. Replace 3pi/4 with (3*Math.PI)/4
+            // This looks for a number followed immediately by pi
+            expr = expr.replace(/(\d+)pi/g, '($1*Math.PI)');
+            
+            // 2. Replace any remaining standalone pi
             expr = expr.replace(/pi/g, Math.PI);
+            
+            // 3. Handle sqrt
             expr = expr.replace(/sqrt\(([^)]+)\)/g, 'Math.sqrt($1)');
+            
             try {
+                // Safety check: allowed characters only
+                if (/[^0-9\.\+\-\*\/\(\)Math\.PIsqrt,]/.test(expr)) return null;
                 return Function('"use strict"; return (' + expr + ')')();
             } catch (e) { return null; }
         }
@@ -211,46 +228,42 @@
         function checkAnswer() {
             const message = document.getElementById('message');
             let isCorrect = false;
-            let currentAnswerStr = "";
 
             if (currentMode === 'angle') {
                 const angleRaw = document.getElementById('angleInput').value;
-                currentAnswerStr = angleRaw;
                 const submittedAngle = parseMathInput(angleRaw);
-                isCorrect = submittedAngle !== null && 
-                            Math.abs(Math.cos(submittedAngle) - Math.cos(currentAngle)) < 0.001 && 
-                            Math.abs(Math.sin(submittedAngle) - Math.sin(currentAngle)) < 0.001;
+                
+                // Allow for coterminal angles within a tolerance
+                if (submittedAngle !== null) {
+                    const diff = Math.abs(Math.cos(submittedAngle) - Math.cos(currentAngle)) + 
+                                 Math.abs(Math.sin(submittedAngle) - Math.sin(currentAngle));
+                    isCorrect = diff < 0.01;
+                }
             } else {
                 const xRaw = document.getElementById('xInput').value;
                 const yRaw = document.getElementById('yInput').value;
-                currentAnswerStr = xRaw + "," + yRaw;
                 const submittedX = parseMathInput(xRaw);
                 const submittedY = parseMathInput(yRaw);
+                
                 const correctX = Math.cos(currentAngle);
                 const correctY = Math.sin(currentAngle);
+                
                 isCorrect = submittedX !== null && submittedY !== null &&
-                            Math.abs(submittedX - correctX) < 0.001 && 
-                            Math.abs(submittedY - correctY) < 0.001;
+                            Math.abs(submittedX - correctX) < 0.01 && 
+                            Math.abs(submittedY - correctY) < 0.01;
             }
 
             if (isCorrect) {
                 message.style.color = 'green';
                 message.innerHTML = "Correct!";
-                
                 correctCount++;
                 updateCounterDisplay();
-                lastFailedAnswer = "";
-                
                 setTimeout(nextQuestion, 1500);
             } else {
                 message.style.color = 'red';
                 message.innerHTML = `Incorrect. Try again!`;
-                
-                if (currentAnswerStr !== lastFailedAnswer) {
-                    incorrectCount++;
-                    updateCounterDisplay();
-                    lastFailedAnswer = currentAnswerStr;
-                }
+                incorrectCount++;
+                updateCounterDisplay();
             }
         }
 
@@ -259,8 +272,6 @@
             document.getElementById('xInput').value = '';
             document.getElementById('yInput').value = '';
             document.getElementById('message').innerHTML = '';
-            
-            lastFailedAnswer = "";
             
             const randomIndex = Math.floor(Math.random() * possibleAngles.length);
             currentAngle = possibleAngles[randomIndex];
@@ -271,7 +282,7 @@
             const coordArea = document.getElementById('coordArea');
 
             if (currentMode === 'angle') {
-                prompt.innerHTML = "Enter the angle \(theta\):";
+                prompt.innerHTML = "Enter the angle \(theta\) in radians:";
                 angleArea.classList.remove('hidden');
                 coordArea.classList.add('hidden');
             } else {
@@ -280,12 +291,20 @@
                 coordArea.classList.remove('hidden');
             }
             
+            // Force MathJax to typeset the updated prompt
+            if (typeof MathJax !== 'undefined') {
+                MathJax.typesetPromise();
+            }
+            
             drawCircle();
             drawPoint(currentAngle);
         }
 
-        updateCounterDisplay();
-        nextQuestion();
+        // Initialize on load
+        window.onload = function() {
+            updateCounterDisplay();
+            nextQuestion();
+        };
     </script>
 </body>
 </html>
