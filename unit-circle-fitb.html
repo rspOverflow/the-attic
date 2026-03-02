@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Circle Trainer</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        #canvas-container {
+            position: relative;
+            margin-top: 20px;
+        }
+
+        canvas {
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #controls {
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 350px;
+        }
+
+        input {
+            width: 100px;
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px 0 5px;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            min-height: 1.2em;
+        }
+        
+        .hidden {
+            display: none;
+        }
+
+        #counter-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            font-weight: bold;
+            font-family: sans-serif;
+        }
+
+        .counter-box {
+            padding: 5px 15px;
+            border-radius: 8px;
+        }
+
+        #correct-counter {
+            background-color: #e2f3e2;
+            color: #006400;
+        }
+
+        #incorrect-counter {
+            background-color: #fbeae9;
+            color: #8b0000;
+        }
+        
+        /* --- NEW HINT STYLE --- */
+        #hint {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Unit Circle Trainer</h1>
+    
+    <div id="canvas-container">
+        <canvas id="circleCanvas" width="400" height="400"></canvas>
+    </div>
+    
+
+    <div id="controls">
+        <p id="prompt">Loading...</p>
+        
+        <div id="angleArea" class="hidden">
+            <p>Angle \(\theta\): <input type="text" id="angleInput" placeholder="e.g. pi/6"> radians</p>
+        </div>
+        
+        <div id="coordArea" class="hidden">
+            <p>Coordinates \((x, y)\):</p>
+            <p>
+                x: <input type="text" id="xInput" placeholder="cos(theta)">
+                y: <input type="text" id="yInput" placeholder="sin(theta)">
+            </p>
+        </div>
+        
+        <button onclick="checkAnswer()">Submit</button>
+        <button onclick="nextQuestion()">Skip</button>
+        
+        <div id="message"></div>
+
+        <div id="counter-area">
+            <span id="correct-counter" class="counter-box">Correct: 0</span>
+            <span id="incorrect-counter" class="counter-box">Incorrect: 0</span>
+        </div>
+        
+        <div id="hint">Hint: Use 'pi' for \(\pi\) and 'sqrt(number)' for \(\sqrt{}\)</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('circleCanvas');
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 150;
+
+        const possibleAngles = [
+            0, Math.PI/6, Math.PI/4, Math.PI/3, Math.PI/2,
+            2*Math.PI/3, 3*Math.PI/4, 5*Math.PI/6, Math.PI,
+            7*Math.PI/6, 5*Math.PI/4, 4*Math.PI/3, 3*Math.PI/2,
+            5*Math.PI/3, 7*Math.PI/4, 11*Math.PI/6
+        ];
+
+        let currentAngle = 0;
+        let currentMode = 'angle'; 
+        
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let lastFailedAnswer = "";
+
+        function drawCircle() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawPoint(angle) {
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY - radius * Math.sin(angle);
+            ctx.beginPath();
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
+
+        function parseMathInput(str) {
+            if (!str) return null;
+            let expr = str.replace(/\s/g, '').toLowerCase();
+            expr = expr.replace(/pi/g, Math.PI);
+            expr = expr.replace(/sqrt\(([^)]+)\)/g, 'Math.sqrt($1)');
+            try {
+                return Function('"use strict"; return (' + expr + ')')();
+            } catch (e) { return null; }
+        }
+
+        function updateCounterDisplay() {
+            document.getElementById('correct-counter').innerHTML = `Correct: ${correctCount}`;
+            document.getElementById('incorrect-counter').innerHTML = `Incorrect: ${incorrectCount}`;
+        }
+
+        function checkAnswer() {
+            const message = document.getElementById('message');
+            let isCorrect = false;
+            let currentAnswerStr = "";
+
+            if (currentMode === 'angle') {
+                const angleRaw = document.getElementById('angleInput').value;
+                currentAnswerStr = angleRaw;
+                const submittedAngle = parseMathInput(angleRaw);
+                isCorrect = submittedAngle !== null && 
+                            Math.abs(Math.cos(submittedAngle) - Math.cos(currentAngle)) < 0.001 && 
+                            Math.abs(Math.sin(submittedAngle) - Math.sin(currentAngle)) < 0.001;
+            } else {
+                const xRaw = document.getElementById('xInput').value;
+                const yRaw = document.getElementById('yInput').value;
+                currentAnswerStr = xRaw + "," + yRaw;
+                const submittedX = parseMathInput(xRaw);
+                const submittedY = parseMathInput(yRaw);
+                const correctX = Math.cos(currentAngle);
+                const correctY = Math.sin(currentAngle);
+                isCorrect = submittedX !== null && submittedY !== null &&
+                            Math.abs(submittedX - correctX) < 0.001 && 
+                            Math.abs(submittedY - correctY) < 0.001;
+            }
+
+            if (isCorrect) {
+                message.style.color = 'green';
+                message.innerHTML = "Correct!";
+                
+                correctCount++;
+                updateCounterDisplay();
+                lastFailedAnswer = "";
+                
+                setTimeout(nextQuestion, 1500);
+            } else {
+                message.style.color = 'red';
+                message.innerHTML = `Incorrect. Try again!`;
+                
+                if (currentAnswerStr !== lastFailedAnswer) {
+                    incorrectCount++;
+                    updateCounterDisplay();
+                    lastFailedAnswer = currentAnswerStr;
+                }
+            }
+        }
+
+        function nextQuestion() {
+            document.getElementById('angleInput').value = '';
+            document.getElementById('xInput').value = '';
+            document.getElementById('yInput').value = '';
+            document.getElementById('message').innerHTML = '';
+            
+            lastFailedAnswer = "";
+            
+            const randomIndex = Math.floor(Math.random() * possibleAngles.length);
+            currentAngle = possibleAngles[randomIndex];
+            currentMode = Math.random() > 0.5 ? 'angle' : 'coords';
+            
+            const prompt = document.getElementById('prompt');
+            const angleArea = document.getElementById('angleArea');
+            const coordArea = document.getElementById('coordArea');
+
+            if (currentMode === 'angle') {
+                prompt.innerHTML = "Enter the angle \(theta\):";
+                angleArea.classList.remove('hidden');
+                coordArea.classList.add('hidden');
+            } else {
+                prompt.innerHTML = "Enter the coordinates \(x, y\):";
+                angleArea.classList.add('hidden');
+                coordArea.classList.remove('hidden');
+            }
+            
+            drawCircle();
+            drawPoint(currentAngle);
+        }
+
+        updateCounterDisplay();
+        nextQuestion();
+    </script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exact Value Trig Practice</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 400px;
+        }
+        h1 { color: #333; font-size: 1.5em; margin-bottom: 10px; }
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .score { padding: 5px 10px; border-radius: 4px; }
+        .correct-score { background-color: #d4edda; color: #155724; }
+        .incorrect-score { background-color: #f8d7da; color: #721c24; }
+        
+        .question {
+            font-size: 1.8em;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #2c3e50;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background-color: #a0cfff; cursor: not-allowed; }
+        #feedback {
+            margin-top: 20px;
+            font-weight: bold;
+            height: 1.5em;
+            font-size: 1.1em;
+        }
+        .correct { color: #28a745; }
+        .incorrect { color: #dc3545; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Exact Value Trainer</h1>
+    <div class="score-board">
+        <span class="score correct-score">Correct: <span id="correctCount">0</span></span>
+        <span class="score incorrect-score">Incorrect: <span id="incorrectCount">0</span></span>
+    </div>
+    <div class="question" id="questionArea">Loading...</div>
+    <div class="options" id="optionsArea">
+        </div>
+    <div id="feedback"></div>
+</div>
+
+<script>
+    let currentCorrectAnswer = "";
+    let correctScore = 0;
+    let incorrectScore = 0;
+    let lastQuestion = ""; // To track the last question
+
+    // Data for common angles and their exact values
+    const trigData = [
+        {rad: "0", sin: "0", cos: "1", tan: "0"},
+        {rad: "\u03C0/6", sin: "1/2", cos: "\u221A3/2", tan: "\u221A3/3"},
+        {rad: "\u03C0/4", sin: "\u221A2/2", cos: "\u221A2/2", tan: "1"},
+        {rad: "\u03C0/3", sin: "\u221A3/2", cos: "1/2", tan: "\u221A3"},
+        {rad: "\u03C0/2", sin: "1", cos: "0", tan: "undefined"},
+        {rad: "2\u03C0/3", sin: "\u221A3/2", cos: "-1/2", tan: "-\u221A3"},
+        {rad: "3\u03C0/4", sin: "\u221A2/2", cos: "-\u221A2/2", tan: "-1"},
+        {rad: "5\u03C0/6", sin: "1/2", cos: "-\u221A3/2", tan: "-\u221A3/3"},
+        {rad: "\u03C0", sin: "0", cos: "-1", tan: "0"},
+        {rad: "7\u03C0/6", sin: "-1/2", cos: "-\u221A3/2", tan: "\u221A3/3"},
+        {rad: "5\u03C0/4", sin: "-(\u221A2/2)", cos: "-(\u221A2/2)", tan: "1"},
+        {rad: "4\u03C0/3", sin: "-(\u221A3/2)", cos: "-1/2", tan: "\u221A3"},
+        {rad: "3\u03C0/2", sin: "-1", cos: "0", tan: "undefined"},
+        {rad: "5\u03C0/3", sin: "-(\u221A3/2)", cos: "1/2", tan: "-\u221A3"},
+        {rad: "7\u03C0/4", sin: "-(\u221A2/2)", cos: "\u221A2/2", tan: "-1"},
+        {rad: "11\u03C0/6", sin: "-1/2", cos: "\u221A3/2", tan: "-\u221A3/3"}
+    ];
+
+    const functions = ['sin', 'cos', 'tan'];
+    const possibleAnswers = ["0", "1", "-1", "1/2", "-1/2", "\u221A2/2", "-\u221A2/2", "\u221A3/2", "-\u221A3/2", "\u221A3", "-\u221A3", "\u221A3/3", "-\u221A3/3", "undefined"];
+
+    function generateQuestion() {
+        document.getElementById('feedback').innerText = "";
+        
+        let angleObj, func, questionId;
+
+        // Keep generating until it's different from the last question
+        do {
+            angleObj = trigData[Math.floor(Math.random() * trigData.length)];
+            func = functions[Math.floor(Math.random() * functions.length)];
+            questionId = func + angleObj.rad;
+        } while (questionId === lastQuestion);
+
+        lastQuestion = questionId;
+        
+        // Set correct answer based on data
+        currentCorrectAnswer = angleObj[func];
+
+        // Display question
+        document.getElementById('questionArea').innerText = `${func}(${angleObj.rad}) = ?`;
+
+        // Generate options (Correct answer + 3 random distinct wrong answers)
+        let options = [currentCorrectAnswer];
+        while (options.length < 4) {
+            let randAns = possibleAnswers[Math.floor(Math.random() * possibleAnswers.length)];
+            if (!options.includes(randAns)) {
+                options.push(randAns);
+            }
+        }
+        
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+
+        // Create buttons
+        const optionsArea = document.getElementById('optionsArea');
+        optionsArea.innerHTML = "";
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(opt);
+            optionsArea.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected) {
+        const feedback = document.getElementById('feedback');
+        
+        // Disable buttons immediately
+        const buttons = document.querySelectorAll('#optionsArea button');
+        buttons.forEach(btn => btn.disabled = true);
+
+        if (selected === currentCorrectAnswer) {
+            feedback.innerText = "Correct!";
+            feedback.className = "correct";
+            correctScore++;
+            document.getElementById('correctCount').innerText = correctScore;
+        } else {
+            feedback.innerText = `Incorrect. The answer is ${currentCorrectAnswer}.`;
+            feedback.className = "incorrect";
+            incorrectScore++;
+            document.getElementById('incorrectCount').innerText = incorrectScore;
+        }
+        
+        // Automatically generate new question after a short delay
+        setTimeout(generateQuestion, 1500);
+    }
+
+    // Start the game
+    generateQuestion();
+</script>
+
+</body>
+</html>
