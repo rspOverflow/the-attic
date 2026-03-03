@@ -24,7 +24,7 @@
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             text-align: center;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             position: relative;
         }
         h1 { color: #333; font-size: 1.5em; margin-bottom: 10px; }
@@ -111,7 +111,7 @@
             margin-top: 25px;
             font-size: 0.9em;
             padding: 8px 16px;
-            display: none; /* Hidden by default */
+            display: none;
         }
         .secondary-btn:hover { background-color: #5a6268; }
 
@@ -120,6 +120,25 @@
             color: #666;
             margin-top: 10px;
         }
+
+        .summary-list {
+            text-align: left;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #fff4f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 0.9em;
+            border: 1px solid #fadbd8;
+        }
+        .summary-item {
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f5b7b1;
+        }
+        .summary-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -155,6 +174,7 @@
     let lastQuestion = "";
     let isSpeedrun = false;
     let timerInterval;
+    let speedrunHistory = new Set(); // Using a Set to store unique mistake strings
 
     const trigData = [
         {rad: "0", sin: "0", cos: "1", tan: "0"},
@@ -179,14 +199,14 @@
 
     window.onload = () => {
         const high = localStorage.getItem('trigHighScore') || 0;
-        document.getElementById('highScoreDisplay').innerText = `Personal Best: ${high}`;
+        document.getElementById('highScoreDisplay').innerText = `Personal Best (Speedrun): ${high}`;
     };
 
     function startPractice() {
         isSpeedrun = false;
         document.getElementById('overlay').style.display = 'none';
         document.getElementById('timer').style.display = 'none';
-        document.getElementById('quitBtn').style.display = 'inline-block'; // Show Quit button
+        document.getElementById('quitBtn').style.display = 'inline-block';
         resetScores();
         generateQuestion();
     }
@@ -208,10 +228,11 @@
 
     function startSpeedrun() {
         isSpeedrun = true;
+        speedrunHistory = new Set();
         resetScores();
         const timerDiv = document.getElementById('timer');
         timerDiv.style.display = 'block';
-        document.getElementById('quitBtn').style.display = 'inline-block'; // Show Quit button
+        document.getElementById('quitBtn').style.display = 'inline-block';
         
         let timeLeft = 300; 
         timerDiv.innerText = `Time Left: 5:00`;
@@ -243,12 +264,12 @@
         do {
             angleObj = trigData[Math.floor(Math.random() * trigData.length)];
             func = ['sin', 'cos', 'tan'][Math.floor(Math.random() * 3)];
-            questionId = func + angleObj.rad;
+            questionId = func + "(" + angleObj.rad + ")";
         } while (questionId === lastQuestion);
 
         lastQuestion = questionId;
         currentCorrectAnswer = angleObj[func];
-        document.getElementById('questionArea').innerText = `${func}(${angleObj.rad}) = ?`;
+        document.getElementById('questionArea').innerText = `${questionId} = ?`;
 
         let options = new Set();
         options.add(currentCorrectAnswer);
@@ -298,6 +319,11 @@
             feedback.className = "incorrect";
             incorrectScore++;
             document.getElementById('incorrectCount').innerText = incorrectScore;
+
+            if (isSpeedrun) {
+                // Store question and answer as a unique string to avoid duplicates
+                speedrunHistory.add(JSON.stringify({q: lastQuestion, a: currentCorrectAnswer}));
+            }
         }
         
         setTimeout(generateQuestion, isSpeedrun ? 200 : 1000);
@@ -305,11 +331,27 @@
 
     function endGame() {
         clearInterval(timerInterval);
-        document.getElementById('quitBtn').style.display = 'none'; // Hide small quit button on end screen
+        document.getElementById('quitBtn').style.display = 'none';
         
         const currentHigh = localStorage.getItem('trigHighScore') || 0;
         if (correctScore > currentHigh) {
             localStorage.setItem('trigHighScore', correctScore);
+        }
+
+        let reviewHtml = "";
+        if (speedrunHistory.size > 0) {
+            reviewHtml = `<p><strong>Review Your Mistakes:</strong></p><div class="summary-list">`;
+            speedrunHistory.forEach(itemStr => {
+                const item = JSON.parse(itemStr);
+                reviewHtml += `
+                    <div class="summary-item">
+                        Question: <b>${item.q}</b><br>
+                        Correct Answer: <b style="color: #28a745">${item.a}</b>
+                    </div>`;
+            });
+            reviewHtml += `</div>`;
+        } else {
+            reviewHtml = `<p>Perfect run! No mistakes.</p>`;
         }
 
         const overlay = document.getElementById('overlay');
@@ -317,7 +359,7 @@
         overlay.innerHTML = `
             <h2>Time's Up!</h2>
             <p style="font-size: 1.2em">Final Score: ${correctScore}</p>
-            <p style="font-size: 0.9em; color: #666;">High Score: ${localStorage.getItem('trigHighScore')}</p>
+            ${reviewHtml}
             <button class="menu-btn" onclick="location.reload()">Main Menu</button>
         `;
     }
