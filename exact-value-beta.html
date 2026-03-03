@@ -145,7 +145,7 @@
 
 <div class="container">
     <div id="overlay">
-        <h1>Select Mode</h1>
+        <h1>Exact Value Trainer</h1>
         <button class="menu-btn" onclick="startPractice()">Practice (No Timer)</button>
         <button class="menu-btn" onclick="startSpeedrunSequence()">Speedrun (5 Minutes)</button>
         <div id="highScoreDisplay" class="high-score"></div>
@@ -174,7 +174,7 @@
     let lastQuestion = "";
     let isSpeedrun = false;
     let timerInterval;
-    let speedrunHistory = new Set(); // Using a Set to store unique mistake strings
+    let speedrunHistory = new Set(); 
 
     const trigData = [
         {rad: "0", sin: "0", cos: "1", tan: "0"},
@@ -321,7 +321,6 @@
             document.getElementById('incorrectCount').innerText = incorrectScore;
 
             if (isSpeedrun) {
-                // Store question and answer as a unique string to avoid duplicates
                 speedrunHistory.add(JSON.stringify({q: lastQuestion, a: currentCorrectAnswer}));
             }
         }
