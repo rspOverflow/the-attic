@@ -13,6 +13,9 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            overflow-y: auto; 
+            padding: 20px;
+            box-sizing: border-box;
         }
         .container {
             background-color: white;
@@ -20,9 +23,20 @@
             border-radius: 15px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             text-align: center;
-            width: 400px;
+            width: 100%;
+            max-width: 450px;
+            position: relative;
         }
         h1 { color: #333; font-size: 1.5em; margin-bottom: 10px; }
+        
+        .timer-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #d63031;
+            margin-bottom: 10px;
+            display: none;
+        }
+
         .score-board {
             display: flex;
             justify-content: space-around;
@@ -50,7 +64,7 @@
             margin-top: 20px;
         }
         button {
-            padding: 15px;
+            padding: 12px;
             background-color: #007bff;
             color: white;
             border: none;
@@ -62,6 +76,7 @@
         button:hover { background-color: #0056b3; }
         button:active { transform: scale(0.98); }
         button:disabled { background-color: #a0cfff; cursor: not-allowed; }
+        
         #feedback {
             margin-top: 20px;
             font-weight: bold;
@@ -70,29 +85,97 @@
         }
         .correct { color: #28a745; }
         .incorrect { color: #dc3545; }
+
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #countdownText { font-size: 4em; font-weight: bold; color: #007bff; }
+        .menu-btn {
+            font-size: 1.1em;
+            padding: 15px 30px;
+            margin: 10px;
+            width: 80%;
+        }
+        .secondary-btn {
+            background-color: #6c757d;
+            margin-top: 25px;
+            font-size: 0.9em;
+            padding: 8px 16px;
+            display: none;
+        }
+        .secondary-btn:hover { background-color: #5a6268; }
+
+        .high-score {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .summary-list {
+            text-align: left;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #fff4f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 0.9em;
+            border: 1px solid #fadbd8;
+        }
+        .summary-item {
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f5b7b1;
+        }
+        .summary-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div id="overlay">
+        <h1>Exact Value Trainer</h1>
+        <button class="menu-btn" onclick="startPractice()">Practice (No Timer)</button>
+        <button class="menu-btn" onclick="startSpeedrunSequence()">Speedrun (5 Minutes)</button>
+        <div id="highScoreDisplay" class="high-score"></div>
+    </div>
+
     <h1>Exact Value Trainer</h1>
+    
+    <div id="timer" class="timer-display">Time Left: 5:00</div>
+
     <div class="score-board">
         <span class="score correct-score">Correct: <span id="correctCount">0</span></span>
         <span class="score incorrect-score">Incorrect: <span id="incorrectCount">0</span></span>
     </div>
-    <div class="question" id="questionArea">Loading...</div>
-    <div class="options" id="optionsArea">
-        </div>
+
+    <div class="question" id="questionArea">Choose a mode</div>
+    <div class="options" id="optionsArea"></div>
     <div id="feedback"></div>
+
+    <button id="quitBtn" class="secondary-btn" onclick="location.reload()">Quit to Menu</button>
 </div>
 
 <script>
     let currentCorrectAnswer = "";
     let correctScore = 0;
     let incorrectScore = 0;
-    let lastQuestion = ""; // To track the last question
+    let lastQuestion = "";
+    let isSpeedrun = false;
+    let timerInterval;
+    let speedrunHistory = new Set(); 
 
-    // Data for common angles and their exact values
     const trigData = [
         {rad: "0", sin: "0", cos: "1", tan: "0"},
         {rad: "\u03C0/6", sin: "1/2", cos: "\u221A3/2", tan: "\u221A3/3"},
@@ -104,53 +187,116 @@
         {rad: "5\u03C0/6", sin: "1/2", cos: "-\u221A3/2", tan: "-\u221A3/3"},
         {rad: "\u03C0", sin: "0", cos: "-1", tan: "0"},
         {rad: "7\u03C0/6", sin: "-1/2", cos: "-\u221A3/2", tan: "\u221A3/3"},
-        {rad: "5\u03C0/4", sin: "-(\u221A2/2)", cos: "-(\u221A2/2)", tan: "1"},
-        {rad: "4\u03C0/3", sin: "-(\u221A3/2)", cos: "-1/2", tan: "\u221A3"},
+        {rad: "5\u03C0/4", sin: "-\u221A2/2", cos: "-\u221A2/2", tan: "1"},
+        {rad: "4\u03C0/3", sin: "-\u221A3/2", cos: "-1/2", tan: "\u221A3"},
         {rad: "3\u03C0/2", sin: "-1", cos: "0", tan: "undefined"},
-        {rad: "5\u03C0/3", sin: "-(\u221A3/2)", cos: "1/2", tan: "-\u221A3"},
-        {rad: "7\u03C0/4", sin: "-(\u221A2/2)", cos: "\u221A2/2", tan: "-1"},
+        {rad: "5\u03C0/3", sin: "-\u221A3/2", cos: "1/2", tan: "-\u221A3"},
+        {rad: "7\u03C0/4", sin: "-\u221A2/2", cos: "\u221A2/2", tan: "-1"},
         {rad: "11\u03C0/6", sin: "-1/2", cos: "\u221A3/2", tan: "-\u221A3/3"}
     ];
 
-    const functions = ['sin', 'cos', 'tan'];
     const possibleAnswers = ["0", "1", "-1", "1/2", "-1/2", "\u221A2/2", "-\u221A2/2", "\u221A3/2", "-\u221A3/2", "\u221A3", "-\u221A3", "\u221A3/3", "-\u221A3/3", "undefined"];
 
+    window.onload = () => {
+        const high = localStorage.getItem('trigHighScore') || 0;
+        document.getElementById('highScoreDisplay').innerText = `Personal Best (Speedrun): ${high}`;
+    };
+
+    function startPractice() {
+        isSpeedrun = false;
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('quitBtn').style.display = 'inline-block';
+        resetScores();
+        generateQuestion();
+    }
+
+    function startSpeedrunSequence() {
+        const overlay = document.getElementById('overlay');
+        overlay.innerHTML = '<div id="countdownText">5</div>';
+        let count = 5;
+        const countInterval = setInterval(() => {
+            count--;
+            if (count > 0) document.getElementById('countdownText').innerText = count;
+            else { 
+                clearInterval(countInterval); 
+                overlay.style.display = 'none'; 
+                startSpeedrun(); 
+            }
+        }, 1000);
+    }
+
+    function startSpeedrun() {
+        isSpeedrun = true;
+        speedrunHistory = new Set();
+        resetScores();
+        const timerDiv = document.getElementById('timer');
+        timerDiv.style.display = 'block';
+        document.getElementById('quitBtn').style.display = 'inline-block';
+        
+        let timeLeft = 300; 
+        timerDiv.innerText = `Time Left: 5:00`;
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            let mins = Math.floor(timeLeft / 60);
+            let secs = timeLeft % 60;
+            timerDiv.innerText = `Time Left: ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (timeLeft <= 0) endGame();
+        }, 1000);
+        generateQuestion();
+    }
+
+    function resetScores() {
+        correctScore = 0;
+        incorrectScore = 0;
+        document.getElementById('correctCount').innerText = "0";
+        document.getElementById('incorrectCount').innerText = "0";
+    }
+
     function generateQuestion() {
-        document.getElementById('feedback').innerText = "";
+        const feedback = document.getElementById('feedback');
+        feedback.innerText = "";
+        feedback.className = "";
         
         let angleObj, func, questionId;
 
-        // Keep generating until it's different from the last question
         do {
             angleObj = trigData[Math.floor(Math.random() * trigData.length)];
-            func = functions[Math.floor(Math.random() * functions.length)];
-            questionId = func + angleObj.rad;
+            func = ['sin', 'cos', 'tan'][Math.floor(Math.random() * 3)];
+            questionId = func + "(" + angleObj.rad + ")";
         } while (questionId === lastQuestion);
 
         lastQuestion = questionId;
-        
-        // Set correct answer based on data
         currentCorrectAnswer = angleObj[func];
+        document.getElementById('questionArea').innerText = `${questionId} = ?`;
 
-        // Display question
-        document.getElementById('questionArea').innerText = `${func}(${angleObj.rad}) = ?`;
+        let options = new Set();
+        options.add(currentCorrectAnswer);
 
-        // Generate options (Correct answer + 3 random distinct wrong answers)
-        let options = [currentCorrectAnswer];
-        while (options.length < 4) {
-            let randAns = possibleAnswers[Math.floor(Math.random() * possibleAnswers.length)];
-            if (!options.includes(randAns)) {
-                options.push(randAns);
-            }
+        if (currentCorrectAnswer !== "undefined" && currentCorrectAnswer !== "0") {
+            let negativeDistractor = currentCorrectAnswer.startsWith('-') ? currentCorrectAnswer.substring(1) : '-' + currentCorrectAnswer;
+            if (possibleAnswers.includes(negativeDistractor)) options.add(negativeDistractor);
         }
-        
-        // Shuffle options
-        options.sort(() => Math.random() - 0.5);
 
-        // Create buttons
+        if (func === 'tan') {
+            options.add("0");
+            options.add("undefined");
+        } else {
+            let partnerFunc = (func === 'sin') ? 'cos' : 'sin';
+            options.add(angleObj[partnerFunc]);
+        }
+
+        while (options.size < 6) {
+            let randAns = possibleAnswers[Math.floor(Math.random() * possibleAnswers.length)];
+            options.add(randAns);
+        }
+
+        let shuffledOptions = Array.from(options).sort(() => Math.random() - 0.5);
+
         const optionsArea = document.getElementById('optionsArea');
         optionsArea.innerHTML = "";
-        options.forEach(opt => {
+        shuffledOptions.forEach(opt => {
             const btn = document.createElement('button');
             btn.innerText = opt;
             btn.onclick = () => checkAnswer(opt);
@@ -160,8 +306,6 @@
 
     function checkAnswer(selected) {
         const feedback = document.getElementById('feedback');
-        
-        // Disable buttons immediately
         const buttons = document.querySelectorAll('#optionsArea button');
         buttons.forEach(btn => btn.disabled = true);
 
@@ -171,18 +315,53 @@
             correctScore++;
             document.getElementById('correctCount').innerText = correctScore;
         } else {
-            feedback.innerText = `Incorrect. The answer is ${currentCorrectAnswer}.`;
+            feedback.innerText = `Incorrect: ${currentCorrectAnswer}`;
             feedback.className = "incorrect";
             incorrectScore++;
             document.getElementById('incorrectCount').innerText = incorrectScore;
+
+            if (isSpeedrun) {
+                speedrunHistory.add(JSON.stringify({q: lastQuestion, a: currentCorrectAnswer}));
+            }
         }
         
-        // Automatically generate new question after a short delay
-        setTimeout(generateQuestion, 1500);
+        setTimeout(generateQuestion, isSpeedrun ? 200 : 1000);
     }
 
-    // Start the game
-    generateQuestion();
+    function endGame() {
+        clearInterval(timerInterval);
+        document.getElementById('quitBtn').style.display = 'none';
+        
+        const currentHigh = localStorage.getItem('trigHighScore') || 0;
+        if (correctScore > currentHigh) {
+            localStorage.setItem('trigHighScore', correctScore);
+        }
+
+        let reviewHtml = "";
+        if (speedrunHistory.size > 0) {
+            reviewHtml = `<p><strong>Review Your Mistakes:</strong></p><div class="summary-list">`;
+            speedrunHistory.forEach(itemStr => {
+                const item = JSON.parse(itemStr);
+                reviewHtml += `
+                    <div class="summary-item">
+                        Question: <b>${item.q}</b><br>
+                        Correct Answer: <b style="color: #28a745">${item.a}</b>
+                    </div>`;
+            });
+            reviewHtml += `</div>`;
+        } else {
+            reviewHtml = `<p>Perfect run! No mistakes.</p>`;
+        }
+
+        const overlay = document.getElementById('overlay');
+        overlay.style.display = 'flex';
+        overlay.innerHTML = `
+            <h2>Time's Up!</h2>
+            <p style="font-size: 1.2em">Final Score: ${correctScore}</p>
+            ${reviewHtml}
+            <button class="menu-btn" onclick="location.reload()">Main Menu</button>
+        `;
+    }
 </script>
 
 </body>
