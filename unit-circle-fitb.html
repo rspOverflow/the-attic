@@ -23,8 +23,6 @@
 
         canvas {
             background-color: white;
-            /* Border radius works best if defined on the container or if 
-               the canvas size matches the intended display size */
             border-radius: 50%;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
@@ -155,17 +153,15 @@
             5*Math.PI/3, 7*Math.PI/4, 11*Math.PI/6
         ];
 
-        let currentAngle = 0;
-        let currentMode = 'angle'; 
+        let currentAngle = null;
+        let currentMode = null; 
         
         let correctCount = 0;
         let incorrectCount = 0;
 
         function drawCircle() {
-            // Clear the canvas explicitly
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Axes
             ctx.beginPath();
             ctx.strokeStyle = '#ccc';
             ctx.lineWidth = 1;
@@ -175,7 +171,6 @@
             ctx.lineTo(centerX, canvas.height);
             ctx.stroke();
             
-            // Circle
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
             ctx.strokeStyle = '#333';
@@ -198,23 +193,14 @@
             ctx.fill();
         }
 
-        // Improved Parser
         function parseMathInput(str) {
             if (!str) return null;
             let expr = str.replace(/\s/g, '').toLowerCase();
-            
-            // 1. Replace 3pi/4 with (3*Math.PI)/4
-            // This looks for a number followed immediately by pi
             expr = expr.replace(/(\d+)pi/g, '($1*Math.PI)');
-            
-            // 2. Replace any remaining standalone pi
             expr = expr.replace(/pi/g, Math.PI);
-            
-            // 3. Handle sqrt
             expr = expr.replace(/sqrt\(([^)]+)\)/g, 'Math.sqrt($1)');
             
             try {
-                // Safety check: allowed characters only
                 if (/[^0-9\.\+\-\*\/\(\)Math\.PIsqrt,]/.test(expr)) return null;
                 return Function('"use strict"; return (' + expr + ')')();
             } catch (e) { return null; }
@@ -233,7 +219,6 @@
                 const angleRaw = document.getElementById('angleInput').value;
                 const submittedAngle = parseMathInput(angleRaw);
                 
-                // Allow for coterminal angles within a tolerance
                 if (submittedAngle !== null) {
                     const diff = Math.abs(Math.cos(submittedAngle) - Math.cos(currentAngle)) + 
                                  Math.abs(Math.sin(submittedAngle) - Math.sin(currentAngle));
@@ -273,9 +258,20 @@
             document.getElementById('yInput').value = '';
             document.getElementById('message').innerHTML = '';
             
-            const randomIndex = Math.floor(Math.random() * possibleAngles.length);
-            currentAngle = possibleAngles[randomIndex];
-            currentMode = Math.random() > 0.5 ? 'angle' : 'coords';
+            // Logic to prevent repeating the same angle OR mode
+            let nextAngle, nextMode;
+            
+            do {
+                const randomIndex = Math.floor(Math.random() * possibleAngles.length);
+                nextAngle = possibleAngles[randomIndex];
+            } while (nextAngle === currentAngle);
+
+            do {
+                nextMode = Math.random() > 0.5 ? 'angle' : 'coords';
+            } while (nextMode === currentMode && possibleAngles.length > 1);
+
+            currentAngle = nextAngle;
+            currentMode = nextMode;
             
             const prompt = document.getElementById('prompt');
             const angleArea = document.getElementById('angleArea');
@@ -291,7 +287,6 @@
                 coordArea.classList.remove('hidden');
             }
             
-            // Force MathJax to typeset the updated prompt
             if (typeof MathJax !== 'undefined') {
                 MathJax.typesetPromise();
             }
@@ -300,7 +295,6 @@
             drawPoint(currentAngle);
         }
 
-        // Initialize on load
         window.onload = function() {
             updateCounterDisplay();
             nextQuestion();
