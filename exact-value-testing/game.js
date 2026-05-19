@@ -68,7 +68,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (user) {
             currentUser = user;
             authContainer.style.display = 'none';
-            userStatus.style.display = 'block'; // Dynamic activation explicitly handled
+            userStatus.style.display = 'block';
             mainMenuContent.style.display = 'block'; 
             
             const dynamicDisplayName = user.displayName || "Cool Competitor";
@@ -76,7 +76,7 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
             currentUser = null;
             authContainer.style.display = 'block';
-            userStatus.style.display = 'none'; // Closes wrapper visually when empty
+            userStatus.style.display = 'none';
             mainMenuContent.style.display = 'none'; 
         }
     });
@@ -262,7 +262,6 @@ function checkAnswer(selected) {
             speedrunHistory.add(JSON.stringify({q: lastQuestion, a: currentCorrectAnswer}));
         }
         
-        // Brief freeze on wrong answers to break up rapid spamming
         setTimeout(generateQuestion, 1000);
     }
 }
@@ -271,7 +270,6 @@ async function endGame() {
     clearInterval(timerInterval);
     document.getElementById('quitBtn').style.display = 'none';
     
-    // Calculate final net score with a floor of 0
     const finalNetScore = Math.max(0, correctScore - incorrectScore);
     const shouldSubmit = finalNetScore > 0;
 
@@ -301,7 +299,6 @@ async function endGame() {
     
     let submitLayout = "";
     
-    // Check if they are a registered user AND have a score worth saving
     if (currentUser && !currentUser.isAnonymous) {
         const userDisplayName = currentUser.displayName || "Account User";
         
@@ -312,11 +309,11 @@ async function endGame() {
                     <p>Submitted as: <b>${userDisplayName}</b></p>
                 </div>`;
                 
-            if (finalNetScore <= 250) {
+            if (finalNetScore <= 300) {
                 try {
                     const userScoreRef = ref(db, `leaderboard/${currentUser.uid}`);
                     await set(userScoreRef, {
-                        name: userDisplayName,
+                        name: userDisplayName.substring(0, 25),
                         score: finalNetScore,
                         timestamp: Date.now()
                     });
@@ -329,7 +326,6 @@ async function endGame() {
             submitLayout = `<div id="dbSubmitArea"><p style='color:#6c757d;'>Scores of 0 are not recorded on the leaderboard.</p></div>`;
         }
     } else {
-        // Guest layout conditional rendering
         if (shouldSubmit) {
             submitLayout = `
                 <div id="dbSubmitArea">
@@ -352,17 +348,17 @@ async function endGame() {
         </div>
     `;
 
-    // Only configure guest submission click handlers if submission is viable
     if (currentUser && currentUser.isAnonymous && shouldSubmit) {
         document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-            if(finalNetScore > 250) return alert("Score value is restricted outside bounds.");
+            if(finalNetScore > 300) return alert("Score value is restricted outside bounds.");
 
             const nameInput = document.getElementById('playerName').value.trim();
             if(!nameInput) {
                 alert("Please type a temporary display name first!");
                 return;
             }
-            const finalSubmissionName = nameInput + " (Guest)";
+            
+            const finalSubmissionName = nameInput.substring(0, 15) + " (Guest)";
 
             document.getElementById('submitScoreBtn').disabled = true;
             document.getElementById('submitScoreBtn').innerText = "Submitting...";
