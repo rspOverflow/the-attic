@@ -270,7 +270,12 @@ async function endGame() {
     clearInterval(timerInterval);
     document.getElementById('quitBtn').style.display = 'none';
     
-    const finalNetScore = Math.max(0, correctScore - incorrectScore);
+    // --- UPDATED SCORE CALCULATION LOGIC ---
+    // Condition: Performance check must be strictly above zero
+    const isPerformancePositive = (correctScore - incorrectScore) > 0;
+    
+    // Final score is the raw correct count if condition is met, otherwise 0
+    const finalNetScore = isPerformancePositive ? correctScore : 0;
     const shouldSubmit = finalNetScore > 0;
 
     const currentHigh = localStorage.getItem('trigHighScore') || 0;
