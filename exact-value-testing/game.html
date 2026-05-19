@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exact Value Trig Practice</title>
+    <link rel="stylesheet" href="game.css">
+    <style>
+        .auth-box { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; width: 85%; box-sizing: border-box; }
+        .auth-box input { width: 90%; padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em; }
+        .auth-btn-row { display: flex; justify-content: space-between; gap: 5px; margin-top: 5px; }
+        .auth-btn-row button { padding: 8px; font-size: 0.9em; flex: 1; }
+        .status-bar { font-size: 0.85em; color: #555; margin-bottom: 10px; background: #e3f2fd; padding: 6px; border-radius: 4px; width: 80%; display: none;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="overlay">
+        <h1>Exact Value Trainer</h1>
+        
+        <!-- Auth Box Widget -->
+        <div id="authContainer" class="auth-box">
+            <b>Sign In to Save Scores</b>
+            <input type="text" id="authUsername" placeholder="Cool Username (Sign Up Only)" maxlength="15">
+            <input type="email" id="authEmail" placeholder="Email">
+            <input type="password" id="authPassword" placeholder="Password">
+            <div class="auth-btn-row">
+                <button id="loginBtn">Login</button>
+                <button id="registerBtn">Sign Up</button>
+            </div>
+            <div style="margin: 10px 0 5px 0; font-size: 0.85em; color:#777;">— OR —</div>
+            <button id="guestBtn" style="background-color: #6c757d; padding: 8px; font-size: 0.9em; width: 100%;">Play as Guest</button>
+        </div>
+
+        <!-- Logged In Status area -->
+        <div id="userStatus" class="status-bar"></div>
+
+        <!-- Menu Actions -->
+        <button id="practiceBtn" class="menu-btn" disabled>Practice (No Timer)</button>
+        <button id="speedrunBtn" class="menu-btn" disabled>Speedrun (5 Minutes)</button>
+        
+        <div id="highScoreDisplay" class="high-score"></div>
+        <div id="globalLeaderboard" class="leaderboard">Loading global leaderboard...</div>
+        
+        <button id="logoutBtn" class="secondary-btn" style="margin-top:10px; padding: 6px 12px;">Sign Out</button>
+    </div>
+
+    <h1>Exact Value Trainer</h1>
+    
+    <div id="timer" class="timer-display">Time Left: 5:00</div>
+
+    <div class="score-board">
+        <span class="score correct-score">Correct: <span id="correctCount">0</span></span>
+        <span class="score incorrect-score">Incorrect: <span id="incorrectCount">0</span></span>
+    </div>
+
+    <div class="question" id="questionArea">Choose a mode</div>
+    <div class="options" id="optionsArea"></div>
+    <div id="feedback"></div>
+
+    <button id="quitBtn" class="secondary-btn">Quit to Menu</button>
+</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
