@@ -250,6 +250,8 @@ function checkAnswer(selected) {
         feedback.className = "correct";
         correctScore++;
         document.getElementById('correctCount').innerText = correctScore;
+        
+        setTimeout(generateQuestion, isSpeedrun ? 200 : 1000);
     } else {
         feedback.innerText = `Incorrect: ${currentCorrectAnswer}`;
         feedback.className = "incorrect";
@@ -259,18 +261,23 @@ function checkAnswer(selected) {
         if (isSpeedrun) {
             speedrunHistory.add(JSON.stringify({q: lastQuestion, a: currentCorrectAnswer}));
         }
+        
+        // Brief freeze on wrong answers to break up rapid spamming
+        setTimeout(generateQuestion, 1000);
     }
-    
-    setTimeout(generateQuestion, isSpeedrun ? 200 : 1000);
 }
 
-function endGame() {
+async function endGame() {
     clearInterval(timerInterval);
     document.getElementById('quitBtn').style.display = 'none';
     
+    // Calculate final net score with a floor of 0
+    const finalNetScore = Math.max(0, correctScore - incorrectScore);
+    const shouldSubmit = finalNetScore > 0;
+
     const currentHigh = localStorage.getItem('trigHighScore') || 0;
-    if (correctScore > currentHigh) {
-        localStorage.setItem('trigHighScore', correctScore);
+    if (finalNetScore > currentHigh) {
+        localStorage.setItem('trigHighScore', finalNetScore);
     }
 
     let reviewHtml = "";
@@ -293,66 +300,89 @@ function endGame() {
     overlay.style.display = 'flex';
     
     let submitLayout = "";
+    
+    // Check if they are a registered user AND have a score worth saving
     if (currentUser && !currentUser.isAnonymous) {
         const userDisplayName = currentUser.displayName || "Account User";
-        submitLayout = `
-            <div id="dbSubmitArea">
-                <p>Submitting as: <b>${userDisplayName}</b></p>
-                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:100%;">Lock Score into Leaderboard</button>
-            </div>`;
+        
+        if (shouldSubmit) {
+            submitLayout = `
+                <div id="dbSubmitArea">
+                    <p style='color:#28a745; font-weight:bold;'>✓ Score auto-saved to leaderboard!</p>
+                    <p>Submitted as: <b>${userDisplayName}</b></p>
+                </div>`;
+                
+            if (finalNetScore <= 250) {
+                try {
+                    const userScoreRef = ref(db, `leaderboard/${currentUser.uid}`);
+                    await set(userScoreRef, {
+                        name: userDisplayName,
+                        score: finalNetScore,
+                        timestamp: Date.now()
+                    });
+                } catch(err) {
+                    console.error("Auto-save failed: ", err);
+                    submitLayout = `<div id="dbSubmitArea"><p style='color:#dc3545;'>Auto-save failed under security rules.</p></div>`;
+                }
+            }
+        } else {
+            submitLayout = `<div id="dbSubmitArea"><p style='color:#6c757d;'>Scores of 0 are not recorded on the leaderboard.</p></div>`;
+        }
     } else {
-        submitLayout = `
-            <div id="dbSubmitArea">
-                <input type="text" id="playerName" class="name-input" placeholder="Guest Display Name" maxlength="15">
-                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:100%;">Submit Guest Score</button>
-            </div>`;
+        // Guest layout conditional rendering
+        if (shouldSubmit) {
+            submitLayout = `
+                <div id="dbSubmitArea">
+                    <input type="text" id="playerName" class="name-input" placeholder="Guest Display Name" maxlength="15">
+                    <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:100%;">Submit Guest Score</button>
+                </div>`;
+        } else {
+            submitLayout = `<div id="dbSubmitArea"><p style='color:#6c757d;'>Scores of 0 are not recorded on the leaderboard.</p></div>`;
+        }
     }
 
     overlay.innerHTML = `
         <div class="menu-card">
             <h2>Time's Up!</h2>
-            <p style="font-size: 1.2em">Final Score: ${correctScore}</p>
+            <p style="font-size: 1.1em; margin-bottom: 5px;">Raw Breakdown: Correct: ${correctScore} | Incorrect: ${incorrectScore}</p>
+            <p style="font-size: 1.4em; font-weight: bold; color: #007bff; margin-top: 0;">Final Score: ${finalNetScore}</p>
             ${submitLayout}
             ${reviewHtml}
             <button id="mainMenuBtn" class="menu-btn secondary-btn" style="display:block;">Main Menu</button>
         </div>
     `;
 
-    document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-        if(!currentUser) return alert("Session identification missing.");
-        if(correctScore > 250) return alert("Score value is restricted outside bounds.");
+    // Only configure guest submission click handlers if submission is viable
+    if (currentUser && currentUser.isAnonymous && shouldSubmit) {
+        document.getElementById('submitScoreBtn').addEventListener('click', async () => {
+            if(finalNetScore > 250) return alert("Score value is restricted outside bounds.");
 
-        let finalSubmissionName = "";
-        
-        if (currentUser.isAnonymous) {
             const nameInput = document.getElementById('playerName').value.trim();
             if(!nameInput) {
                 alert("Please type a temporary display name first!");
                 return;
             }
-            finalSubmissionName = nameInput + " (Guest)";
-        } else {
-            finalSubmissionName = currentUser.displayName || "Anonymous Player";
-        }
+            const finalSubmissionName = nameInput + " (Guest)";
 
-        document.getElementById('submitScoreBtn').disabled = true;
-        document.getElementById('submitScoreBtn').innerText = "Submitting...";
+            document.getElementById('submitScoreBtn').disabled = true;
+            document.getElementById('submitScoreBtn').innerText = "Submitting...";
 
-        try {
-            const userScoreRef = ref(db, `leaderboard/${currentUser.uid}`);
-            await set(userScoreRef, {
-                name: finalSubmissionName,
-                score: correctScore,
-                timestamp: Date.now()
-            });
-            document.getElementById('dbSubmitArea').innerHTML = "<p style='color:#28a745; font-weight:bold;'>Score locked in successfully!</p>";
-        } catch(err) {
-            console.error(err);
-            alert("Database rejected submission under security rules constraint rules.");
-            document.getElementById('submitScoreBtn').disabled = false;
-            document.getElementById('submitScoreBtn').innerText = "Submit to Leaderboard";
-        }
-    });
+            try {
+                const userScoreRef = ref(db, `leaderboard/${currentUser.uid}`);
+                await set(userScoreRef, {
+                    name: finalSubmissionName,
+                    score: finalNetScore,
+                    timestamp: Date.now()
+                });
+                document.getElementById('dbSubmitArea').innerHTML = "<p style='color:#28a745; font-weight:bold;'>Score locked in successfully!</p>";
+            } catch(err) {
+                console.error(err);
+                alert("Database rejected submission under security rules constraint rules.");
+                document.getElementById('submitScoreBtn').disabled = false;
+                document.getElementById('submitScoreBtn').innerText = "Submit to Leaderboard";
+            }
+        });
+    }
 
     document.getElementById('mainMenuBtn').addEventListener('click', () => location.reload());
 }
