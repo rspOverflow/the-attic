@@ -63,27 +63,21 @@ window.addEventListener('DOMContentLoaded', () => {
     onAuthStateChanged(auth, (user) => {
         const authContainer = document.getElementById('authContainer');
         const userStatus = document.getElementById('userStatus');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const practiceBtn = document.getElementById('practiceBtn');
-        const speedrunBtn = document.getElementById('speedrunBtn');
+        const mainMenuContent = document.getElementById('mainMenuContent');
 
         if (user) {
             currentUser = user;
             authContainer.style.display = 'none';
-            userStatus.style.display = 'block';
-            logoutBtn.style.display = 'inline-block';
-            practiceBtn.disabled = false;
-            speedrunBtn.disabled = false;
+            userStatus.style.display = 'block'; // Dynamic activation explicitly handled
+            mainMenuContent.style.display = 'block'; 
             
             const dynamicDisplayName = user.displayName || "Cool Competitor";
             userStatus.innerText = user.isAnonymous ? "Playing as: Anonymous Guest" : `Logged in as: ${dynamicDisplayName}`;
         } else {
             currentUser = null;
             authContainer.style.display = 'block';
-            userStatus.style.display = 'none';
-            logoutBtn.style.display = 'none';
-            practiceBtn.disabled = true;
-            speedrunBtn.disabled = true;
+            userStatus.style.display = 'none'; // Closes wrapper visually when empty
+            mainMenuContent.style.display = 'none'; 
         }
     });
 
@@ -101,7 +95,6 @@ async function handleRegister() {
     try { 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: username });
-        // Force status update text refresh
         location.reload();
     } catch(err) { alert(err.message); }
 }
@@ -299,29 +292,30 @@ function endGame() {
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'flex';
     
-    // Conditional submission structure depending on user auth state status type
     let submitLayout = "";
     if (currentUser && !currentUser.isAnonymous) {
         const userDisplayName = currentUser.displayName || "Account User";
         submitLayout = `
             <div id="dbSubmitArea">
                 <p>Submitting as: <b>${userDisplayName}</b></p>
-                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:80%;">Lock Score into Leaderboard</button>
+                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:100%;">Lock Score into Leaderboard</button>
             </div>`;
     } else {
         submitLayout = `
             <div id="dbSubmitArea">
                 <input type="text" id="playerName" class="name-input" placeholder="Guest Display Name" maxlength="15">
-                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:80%;">Submit Guest Score</button>
+                <button id="submitScoreBtn" class="menu-btn" style="padding:10px; width:100%;">Submit Guest Score</button>
             </div>`;
     }
 
     overlay.innerHTML = `
-        <h2>Time's Up!</h2>
-        <p style="font-size: 1.2em">Final Score: ${correctScore}</p>
-        ${submitLayout}
-        ${reviewHtml}
-        <button id="mainMenuBtn" class="menu-btn">Main Menu</button>
+        <div class="menu-card">
+            <h2>Time's Up!</h2>
+            <p style="font-size: 1.2em">Final Score: ${correctScore}</p>
+            ${submitLayout}
+            ${reviewHtml}
+            <button id="mainMenuBtn" class="menu-btn secondary-btn" style="display:block;">Main Menu</button>
+        </div>
     `;
 
     document.getElementById('submitScoreBtn').addEventListener('click', async () => {
