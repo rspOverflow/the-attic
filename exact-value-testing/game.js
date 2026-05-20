@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
             userStatus.style.display = 'block';
             mainMenuContent.style.display = 'block'; 
             
-            const dynamicDisplayName = user.displayName || "Cool Competitor";
+            const dynamicDisplayName = user.displayName || "Random Competitor";
             userStatus.innerText = user.isAnonymous ? "Playing as: Anonymous Guest" : `Logged in as: ${dynamicDisplayName}`;
         } else {
             currentUser = null;
@@ -89,7 +89,12 @@ async function handleRegister() {
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
     
-    if(!username) return alert("Please specify a cool username first.");
+    if(!username) return alert("Please specify a username first.");
+    
+    if(username.toLowerCase().endsWith('(guest)')) {
+        return alert("Usernames cannot end with '(Guest)'. That is reserved for temporary players!");
+    }
+    
     if(!email || !password) return alert("Fill in email and password fields.");
     
     try { 
